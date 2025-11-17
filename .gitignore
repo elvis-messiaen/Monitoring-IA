@@ -1,0 +1,58 @@
+# --- ENVIRONNEMENTS PYTHON ---
+# Virtualenv
+venv/
+env/
+.venv/
+.env/
+
+# Pyenv
+.python-version
+
+# Conda
+conda-env/
+*.conda
+*.yaml
+
+# --- FICHIERS PYTHON ---
+__pycache__/
+*.py[cod]
+*.pyo
+*$py.class
+
+# Cython / Build
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# --- IDE / ÉDITEURS ---
+# VSCode
+.vscode/
+# PyCharm
+.idea/
+# Jupyter backup
+.ipynb_checkpoints/
+
+# --- LOGS / DEBUG ---
+*.log
+.log/
+logs/
+
+# --- CONFIG SECRETS ---
+*.env
+.env.*
+secrets.json
+config.local.json
+
+# --- TESTS ---
+.coverage
+htmlcov/
+.tox/
+.nox/
+pytest_cache/
+
+# --- AUTRES ---
+.DS_Store
+Thumbs.db
+*.bak
