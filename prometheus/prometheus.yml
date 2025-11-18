@@ -2,11 +2,18 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
+  # Scrape Prometheus lui-même
   - job_name: "prometheus"
     static_configs:
       - targets: ["prometheus:9090"]
 
+  # Scrape l'API FastAPI (Titanic)
   - job_name: "api"
     metrics_path: /metrics
     static_configs:
       - targets: ["api:8000"]
+
+  # Scrape cAdvisor (monitoring des containers Docker)
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]

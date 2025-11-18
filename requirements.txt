@@ -26,3 +26,5 @@ httpx
 
 # Logging
 loguru
+
+prometheus-fastapi-instrumentator
