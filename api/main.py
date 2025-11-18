@@ -1,8 +1,3 @@
-"""
-API FastAPI pour le monitoring ML du modèle Titanic.
-Cette API expose des endpoints de prédiction et de monitoring.
-"""
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 from api.models import Passenger, Passengers
@@ -100,6 +95,8 @@ def predict_many(passengers: Passengers):
     passenger_list = [p.dict() for p in passengers.passengers]
     predictions = predict_passengers(passenger_list)
     return {"predictions": predictions}
+
+
 
 # Instrumentation Prometheus
 Instrumentator().instrument(app).expose(app)
