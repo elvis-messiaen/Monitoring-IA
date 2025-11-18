@@ -36,64 +36,93 @@ This project implements a complete ML monitoring pipeline for a Titanic survival
 
 - Docker and Docker Compose
 - Git
+- Python 3.11+ (pour développement local)
 
-### Installation
+### Installation et démarrage
 
-1. **Clone the repository**
+1. **Cloner le repository**
    ```bash
    git clone https://github.com/elvis-messiaen/Monitoring-IA.git
    cd Monitoring-IA
    ```
 
-2. **Start all services**
+2. **Démarrer tous les services**
    ```bash
-   docker-compose up -d
+   docker-compose up -d --build
    ```
 
-3. **Verify services are running**
+3. **Vérifier que les services fonctionnent**
    ```bash
+   # Vérifier l'état des conteneurs
    docker-compose ps
+
+   # Tester l'API
+   curl http://localhost:8000/health
+
+   # Tester une prédiction
+   curl -X POST "http://localhost:8000/monitoring/test/prediction?model_version=v1.0&prediction_class=survived&confidence=0.85"
+
+   # Consulter les métriques Prometheus
+   curl http://localhost:8000/metrics
    ```
 
-### Access Points
+### Points d'accès
 
 - **API Documentation**: http://localhost:8000/docs
-- **Grafana Dashboard**: http://localhost:3000
-  - Username: `admin`
-  - Password: `admin`
+- **API Health**: http://localhost:8000/health
+- **Prometheus Metrics**: http://localhost:8000/metrics
+- **Grafana Dashboard**: http://localhost:3000 (admin/admin)
 - **Prometheus**: http://localhost:9090
 - **cAdvisor**: http://localhost:8080
+
+### Générer un rapport Evidently
+
+```bash
+# Installer les dépendances (si développement local)
+pip install -r requirements.txt
+
+# Générer un rapport de drift
+python scripts/generer_rapport_test.py
+
+# Ouvrir le rapport
+open reports/drift_report_test.html
+```
 
 ## 📁 Project Structure
 
 ```
 Monitoring-IA/
 ├── api/
-│   ├── main.py              # FastAPI application
-│   ├── config.py            # Configuration (empty placeholder)
-│   ├── models.py            # ML models definitions (placeholder)
-│   ├── predict.py           # Prediction endpoints (to implement)
-│   ├── monitoring.py        # Custom monitoring metrics (to implement)
-│   └── Dockerfile           # Docker configuration for API
+│   ├── main.py              # FastAPI application avec endpoints de monitoring
+│   ├── metrics/
+│   │   ├── __init__.py      # Exposition des fonctions de monitoring
+│   │   └── monitoring.py    # Métriques Prometheus + Rapports Evidently
+│   ├── config.py            # Configuration
+│   ├── models.py            # ML models definitions
+│   ├── predict.py           # Prediction endpoints
+│   └── Dockerfile           # Docker configuration pour l'API
 ├── grafana/
 │   ├── datasources/
-│   │   └── prometheus.yml   # Grafana datasource configuration
-│   └── dashboards/          # Grafana dashboard definitions
+│   │   └── prometheus.yml   # Configuration datasource Grafana
+│   └── dashboards/          # Définitions des dashboards
 ├── prometheus/
-│   └── prometheus.yml       # Prometheus scraping configuration
+│   └── prometheus.yml       # Configuration scraping Prometheus
 ├── notebooks/
-│   ├── 01_data_exploration.ipynb  # Data analysis notebook
-│   └── 02_model_training.ipynb    # Model training notebook
+│   ├── 01_data_exploration.ipynb  # Exploration des données
+│   └── 02_model_training.ipynb    # Entraînement du modèle
 ├── data/
-│   ├── raw/Titanic-Dataset.csv   # Raw Titanic dataset
-│   └── titanic_cleaned_dataset.csv # Cleaned dataset
-├── models/                # ML model artifacts
-├── reports/               # Model reports and metrics
-├── scripts/               # Utility scripts
-├── tests/                 # Test suite
-├── requirements.txt       # Python dependencies
-├── docker-compose.yml     # Docker orchestration
-└── README.md             # This file
+│   ├── raw/Titanic-Dataset.csv   # Dataset Titanic brut
+│   └── titanic_cleaned_dataset.csv # Dataset nettoyé
+├── models/                # Artéfacts ML sauvegardés
+├── reports/               # Rapports Evidently générés (HTML)
+├── scripts/
+│   └── generer_rapport_test.py    # Script de génération de rapports
+├── tests/                 # Suite de tests
+├── requirements.txt       # Dépendances Python
+├── docker-compose.yml     # Orchestration Docker
+├── CLAUDE.md             # Guide pour Claude Code
+├── tempo.md              # Guide de démarrage rapide
+└── README.md             # Ce fichier
 ```
 
 ## 🔧 Configuration
@@ -126,28 +155,49 @@ The FastAPI application is configured with:
 - **Container monitoring**: Resource usage, performance metrics
 - **Docker integration**: Automatic container discovery
 
-## 📊 Available Features
+## 📊 Fonctionnalités disponibles
 
 ### API Endpoints
 
-- `GET /`: Root endpoint - API status
-- `GET /metrics`: Prometheus metrics
-- `GET /docs`: Interactive API documentation
-- `GET /health`: Health check endpoint
+| Endpoint | Méthode | Description |
+|----------|---------|-------------|
+| `/` | GET | Informations sur l'API |
+| `/health` | GET | Healthcheck Docker |
+| `/metrics` | GET | Métriques Prometheus |
+| `/docs` | GET | Documentation Swagger interactive |
+| `/monitoring/stats` | GET | Statistiques de monitoring |
+| `/monitoring/test/prediction` | POST | Test d'enregistrement de prédiction |
+| `/monitoring/test/accuracy` | POST | Test de mise à jour d'accuracy |
 
-### Monitoring Metrics
+### Métriques Prometheus personnalisées
 
-- **HTTP Requests**: Request count, latency, error rates
-- **System Metrics**: CPU, memory, disk usage (via cAdvisor)
-- **Application Metrics**: Custom ML metrics (to be implemented)
-- **Container Metrics**: Resource usage per container
+Toutes les métriques ML sont disponibles via `/metrics`:
+
+- `ml_predictions_total` - Compteur de prédictions par version et classe
+- `ml_prediction_latency_seconds` - Histogramme de latence des prédictions
+- `ml_prediction_errors_total` - Compteur d'erreurs par type
+- `ml_prediction_confidence` - Gauge de confiance moyenne par classe
+- `ml_prediction_confidence_summary` - Statistiques de confiance
+- `ml_data_drift_detected_total` - Compteur de drift détecté par feature
+- `ml_data_drift_score` - Score de drift global (0-1)
+- `ml_model_accuracy` - Précision actuelle du modèle
+- `ml_monitoring_requests_total` - Compteur de requêtes de monitoring
+
+### Rapports Evidently
+
+Génération de rapports HTML interactifs pour:
+- **Classification Performance**: Métriques de performance du modèle
+- **Data Drift Detection**: Détection de dérive des données
+- **Rapports combinés**: Classification + Drift
+
+Les rapports sont sauvegardés dans `reports/` et s'ouvrent dans le navigateur.
 
 ### Dashboards
 
-- **System Overview**: Overall system health and performance
-- **API Performance**: Request metrics and response times
-- **Container Monitoring**: Resource usage and health
-- **ML Model Metrics** (planned): Model performance and data drift
+- **System Overview**: Santé et performance globale du système
+- **API Performance**: Métriques de requêtes et temps de réponse
+- **Container Monitoring**: Utilisation des ressources par conteneur
+- **ML Model Metrics**: Performance du modèle et drift (via Evidently)
 
 ## 🐳 Docker Services
 
@@ -228,12 +278,54 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Monitoring Development
+
 ```bash
-# View Prometheus metrics
+# Voir les métriques Prometheus
 curl http://localhost:9090/metrics
 
-# View API metrics
+# Voir les métriques API personnalisées
 curl http://localhost:8000/metrics
+
+# Générer un rapport Evidently
+python scripts/generer_rapport_test.py
+
+# Tester l'enregistrement de prédictions
+curl -X POST "http://localhost:8000/monitoring/test/prediction?model_version=v1.0&prediction_class=survived&confidence=0.85"
+
+# Tester la mise à jour d'accuracy
+curl -X POST "http://localhost:8000/monitoring/test/accuracy?model_version=v1.0&accuracy=0.82"
+```
+
+### Utiliser les fonctions de monitoring dans votre code
+
+```python
+from api.metrics import (
+    enregistrer_prediction,
+    enregistrer_erreur,
+    mettre_a_jour_accuracy,
+    generer_rapport_drift,
+    generer_rapport_complet
+)
+
+# Enregistrer une prédiction
+enregistrer_prediction(
+    model_version="v1.0",
+    prediction_class="survived",
+    confidence=0.85,
+    latency=0.023
+)
+
+# Générer un rapport de drift
+import pandas as pd
+
+reference_data = pd.read_csv('data/titanic_cleaned_dataset.csv')
+current_data = pd.read_csv('data/new_data.csv')
+
+rapport = generer_rapport_drift(
+    reference_data=reference_data,
+    current_data=current_data,
+    output_path='reports/drift_report.html'
+)
 ```
 
 ## 📈 Future Enhancements
