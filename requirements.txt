@@ -7,6 +7,8 @@ pydantic
 scikit-learn
 pandas
 numpy
+seaborn
+matplotlib
 
 # Monitoring Prometheus
 prometheus-client
