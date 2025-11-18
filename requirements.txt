@@ -2,6 +2,7 @@
 fastapi
 uvicorn
 pydantic
+pytest
 
 # Machine Learning
 scikit-learn
