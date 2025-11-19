@@ -77,7 +77,7 @@
 
 ### 3.3 Grafana
 - [x] **FAIT** - Service Grafana dans docker-compose
-- [x] **FAIT** - Configuration datasource Prometheus (`grafana/datasources/prometheus.yml`)
+- [x] **FAIT** - Configuration datasource Prometheus (`grafana/datasources/datasources.yml`)
 - [x] **FAIT** - Dashboard Grafana pour les performances de l'API (`grafana/dashboards/api-performance.json`)
   - [x] Graphique: Temps de réponse / latence (p50, p95)
   - [x] Graphique: Nombre de requêtes par seconde

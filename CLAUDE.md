@@ -122,7 +122,7 @@ L'API doit exposer un endpoint `/health` pour le healthcheck Docker (configuré 
 ### Grafana
 
 - Identifiants par défaut: admin/admin
-- Les datasources sont provisionnées depuis `grafana/datasources/prometheus.yml`
+- Les datasources sont provisionnées depuis `grafana/datasources/datasources.yml`
 - Les dashboards sont chargés depuis `grafana/dashboards/`
 
 ### Prometheus

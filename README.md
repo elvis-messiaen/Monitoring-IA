@@ -230,7 +230,7 @@ Monitoring-IA/
 │   └── Dockerfile           # Docker configuration pour l'API
 ├── grafana/
 │   ├── datasources/
-│   │   └── prometheus.yml         # Grafana datasource configuration
+│   │   └── datasources.yml        # Grafana datasource configuration
 │   └── dashboards/
 │       ├── dashboard.yml          # Dashboard provisioning config
 │       ├── api-performance.json   # API Performance dashboard
@@ -246,7 +246,9 @@ Monitoring-IA/
 ├── models/                # Artéfacts ML sauvegardés
 ├── reports/               # Rapports Evidently générés (HTML)
 ├── scripts/
-│   └── generer_rapport_test.py    # Script de génération de rapports
+│   ├── generer_rapport_test.py              # Script de génération de rapports (test)
+│   ├── generer_rapport_avec_predictions.py  # Script de rapport avec prédictions réelles
+│   └── simuler_predictions.py               # Script de simulation pour tests (10 prédictions)
 ├── tests/                 # Suite de tests
 ├── requirements.txt       # Dépendances Python
 ├── docker-compose.yml     # Orchestration Docker
@@ -276,10 +278,7 @@ The FastAPI application is configured with:
 
 #### Grafana
 - **Admin credentials**: admin/admin
-- **Data sources**:
-  - Prometheus (default)
-  - cAdvisor
-  - Titanic-API
+- **Data source**: Prometheus (configured automatically via provisioning)
 
 #### cAdvisor
 - **Container monitoring**: Resource usage, performance metrics
@@ -346,7 +345,7 @@ Tracks machine learning model performance and predictions:
 
 **Access Dashboards**: Navigate to http://localhost:3000 (admin/admin) and select dashboards from the left menu.
 
-**Note**: Dashboards require active traffic to display metrics. Use the `/predict` or `/monitoring/test/prediction` endpoints to generate data.
+**Note**: Dashboards require active traffic to display metrics. Run `python scripts/simuler_predictions.py` to quickly generate test data and populate all metrics.
 
 ## 🐳 Docker Services
 
@@ -479,14 +478,14 @@ rapport = generer_rapport_drift(
 
 ## 📈 Future Enhancements
 
-- **ML Model Integration**: Complete Titanic prediction model
-- **Custom Metrics**: Business-specific KPIs
-- **Alerting**: Automated notifications for anomalies
-- **Model Versioning**: A/B testing and model comparison
-- **Data Quality Monitoring**: Input data validation
-- **Model Drift Detection**: Automated performance tracking
-- **Security Enhancements**: Authentication and authorization
-- **Performance Optimization**: Caching and load balancing
+- **Alerting System**: Automated notifications for anomalies and drift detection
+- **Model Versioning**: A/B testing and model comparison between versions
+- **Data Quality Monitoring**: Real-time input data validation
+- **Automated Evidently Reports**: Scheduled report generation (cron job)
+- **Custom Business Metrics**: Domain-specific KPIs and dashboards
+- **Security Enhancements**: Authentication, authorization, and API keys
+- **Performance Optimization**: Caching, load balancing, and horizontal scaling
+- **CI/CD Pipeline**: Automated testing and deployment
 
 ## 🛠️ Troubleshooting
 
