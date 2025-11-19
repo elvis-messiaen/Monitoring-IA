@@ -276,15 +276,27 @@ histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
 
 Evidently génère des rapports HTML interactifs pour analyser le drift et les performances du modèle.
 
-#### Installation des dépendances (si en local)
+#### Prérequis : Environnement virtuel Python 3.10
+
+**IMPORTANT** : Pour générer les rapports Evidently, vous devez utiliser Python 3.10 dans un environnement virtuel.
 
 ```bash
+# Créer un environnement virtuel avec Python 3.10
+python3.10 -m venv .venv
+
+# Activer l'environnement virtuel
+source .venv/bin/activate  # Sur Windows: .venv\Scripts\activate
+
+# Installer les dépendances
 pip install -r requirements.txt
 ```
 
 #### Générer un rapport de drift
 
 ```bash
+# S'assurer que l'environnement virtuel est activé
+source .venv/bin/activate
+
 # Rapport avec données de test
 python scripts/generer_rapport_test.py
 
@@ -382,7 +394,6 @@ Monitoring-IA/
 │
 ├── requirements.txt                  # Dépendances Python
 ├── docker-compose.yml                # Orchestration Docker
-├── CLAUDE.md                         # Guide pour Claude Code
 └── README.md                         # Ce fichier
 ```
 
@@ -661,30 +672,3 @@ docker-compose down
 # Nettoyage complet (supprime les volumes)
 docker-compose down -v
 ```
-
----
-
-## Contribution
-
-Les contributions sont les bienvenues ! Merci de:
-
-1. Fork le projet
-2. Créer une branche pour votre fonctionnalité (`git checkout -b feature/ma-fonctionnalite`)
-3. Commiter vos changements (`git commit -m 'Ajout de ma fonctionnalité'`)
-4. Pousser vers la branche (`git push origin feature/ma-fonctionnalite`)
-5. Ouvrir une Pull Request vers la branche `dev`
-
----
-
-## Licence
-
-Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
-
----
-
-## Support
-
-Pour toute question ou problème:
-- Ouvrir une issue sur GitHub
-- Consulter la documentation dans `/docs`
-- Vérifier les dashboards Grafana pour diagnostiquer les problèmes
