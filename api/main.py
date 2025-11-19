@@ -34,10 +34,6 @@ app = FastAPI(
 
 )
 
-@app.get("/", include_in_schema=False)
-def root():
-    return RedirectResponse(url="/docs")
-
 
 @app.post("/predict", summary="Prediction for one Titanic passenger", response_description="Response of the prediction")
 def predict(passenger: Passenger):
@@ -252,43 +248,75 @@ def test_enregistrer_prediction(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/monitoring/test/accuracy")
-def test_mettre_a_jour_accuracy(
-    model_version: str = "v1.0",
-    accuracy: float = 0.82
-) -> Dict:
+@app.post("/monitoring/calculate-accuracy")
+def calculer_accuracy_reelle() -> Dict:
     """
-    Endpoint de test pour mettre à jour l'accuracy du modèle.
+    Calcule automatiquement l'accuracy REELLE du modèle sur le dataset de test.
 
     Args:
         model_version: Version du modèle
-        accuracy: Précision du modèle (0-1)
 
     Returns:
-        Confirmation de la mise à jour
+        Accuracy calculée et métrique mise à jour
     """
     try:
-        # Valider l'accuracy
-        if not 0 <= accuracy <= 1:
-            raise ValueError("L'accuracy doit être entre 0 et 1")
+        from pathlib import Path
+        import pandas as pd
+        from sklearn.metrics import accuracy_score
+        from api.predict import pipeline, encode_sex
 
-        # Mettre à jour la métrique
+        model_version: str = "v1.0"
+        # Charger le dataset de test
+        BASE_DIR = Path("/app")
+        data_path = BASE_DIR / "data" / "titanic_cleaned_dataset.csv"
+
+        if not data_path.exists():
+            raise FileNotFoundError(f"Dataset introuvable: {data_path}")
+
+        # Charger les données
+        df = pd.read_csv(data_path)
+
+        # Diviser: 70% train, 30% test (même split que dans le script de rapport)
+        split_idx = int(len(df) * 0.7)
+        test_data = df.iloc[split_idx:].copy()
+
+        # Préparer les features
+        X_test = test_data[['Sex', 'Fare']].copy()
+        y_test = test_data['Survived'].copy()
+
+        # Encoder Sex si nécessaire
+        if X_test['Sex'].dtype == 'object':
+            X_test['Sex'] = X_test['Sex'].apply(lambda x: 0 if x.upper() == 'M' else 1)
+
+        # Faire les prédictions
+        y_pred = pipeline.predict(X_test)
+
+        # Calculer l'accuracy
+        accuracy = float(accuracy_score(y_test, y_pred))
+
+        # Mettre à jour la métrique Prometheus
         mettre_a_jour_accuracy(
             model_version=model_version,
             accuracy=accuracy
         )
 
+        logger.info(f"Accuracy calculée et mise à jour: {accuracy:.4f} ({accuracy*100:.2f}%)")
+
         return {
             "status": "success",
-            "message": "Accuracy mise à jour",
+            "message": "Accuracy calculée automatiquement sur le dataset de test",
             "data": {
                 "model_version": model_version,
-                "accuracy": accuracy
+                "accuracy": accuracy,
+                "accuracy_percentage": f"{accuracy*100:.2f}%",
+                "test_samples": len(test_data),
+                "correct_predictions": int(accuracy * len(test_data))
             }
         }
+
     except Exception as e:
-        logger.error(f"Erreur lors de la mise à jour de l'accuracy: {e}")
-        enregistrer_erreur("accuracy_test_error")
+        logger.error(f"Erreur lors du calcul de l'accuracy: {e}")
+        enregistrer_erreur("accuracy_calculation_error")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -304,6 +332,52 @@ async def startup_event():
     logger.info("Démarrage de l'API Titanic ML Monitoring")
     logger.info("Instrumentation Prometheus activée")
     logger.info("Endpoints de monitoring disponibles")
+
+    # Calculer automatiquement l'accuracy du modèle au démarrage
+    try:
+        logger.info("Calcul automatique de l'accuracy du modèle...")
+        from pathlib import Path
+        import pandas as pd
+        from sklearn.metrics import accuracy_score
+        from api.predict import pipeline
+
+        # Charger le dataset de test
+        BASE_DIR = Path("/app")
+        data_path = BASE_DIR / "data" / "titanic_cleaned_dataset.csv"
+
+        if data_path.exists():
+            # Charger les données
+            df = pd.read_csv(data_path)
+
+            # Diviser: 70% train, 30% test
+            split_idx = int(len(df) * 0.7)
+            test_data = df.iloc[split_idx:].copy()
+
+            # Préparer les features
+            X_test = test_data[['Sex', 'Fare']].copy()
+            y_test = test_data['Survived'].copy()
+
+            # Encoder Sex si nécessaire
+            if X_test['Sex'].dtype == 'object':
+                X_test['Sex'] = X_test['Sex'].apply(lambda x: 0 if x.upper() == 'M' else 1)
+
+            # Faire les prédictions
+            y_pred = pipeline.predict(X_test)
+
+            # Calculer l'accuracy
+            accuracy = float(accuracy_score(y_test, y_pred))
+
+            # Mettre à jour la métrique Prometheus
+            mettre_a_jour_accuracy(model_version="v1.0", accuracy=accuracy)
+
+            logger.info(f"✅ Accuracy calculée et initialisée: {accuracy:.4f} ({accuracy*100:.2f}%) sur {len(test_data)} échantillons")
+        else:
+            logger.warning(f"⚠️  Dataset introuvable: {data_path} - Accuracy non initialisée")
+
+    except Exception as e:
+        logger.error(f"❌ Erreur lors du calcul automatique de l'accuracy: {e}")
+        # Ne pas bloquer le démarrage de l'API si le calcul échoue
+
 
 
 @app.on_event("shutdown")

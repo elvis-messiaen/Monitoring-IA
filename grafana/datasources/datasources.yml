@@ -4,6 +4,7 @@ datasources:
   # Datasource principale : Prometheus
   - name: Prometheus
     type: prometheus
+    uid: prometheus       # ← OBLIGATOIRE
     access: proxy
     url: http://prometheus:9090
     isDefault: true
@@ -11,13 +12,15 @@ datasources:
   # Datasource cAdvisor (monitoring des containers Docker)
   - name: cAdvisor
     type: prometheus
+    uid: cadvisor         # ← ajoute un UID propre
     access: proxy
     url: http://cadvisor:8080
     isDefault: false
 
-  # Datasource API (si tu exposes des métriques via /metrics dans FastAPI)
+  # Datasource API (FastAPI /metrics)
   - name: Titanic-API
     type: prometheus
+    uid: titanic-api      # ← ajoute un UID propre
     access: proxy
     url: http://api:8000/metrics
     isDefault: false
