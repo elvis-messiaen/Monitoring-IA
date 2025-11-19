@@ -30,6 +30,8 @@ app = FastAPI(
     - Fare: float
     The output will be 'Died' or 'Survived'.
     """
+
+
 )
 
 @app.get("/", include_in_schema=False)
@@ -61,8 +63,44 @@ def predict(passenger: Passenger):
         "prediction": "Survived"
     }
     """
-    prediction = predict_passenger(passenger.dict())
-    return {"prediction": prediction}
+    import time
+
+    # Mesurer la latence
+    start_time = time.time()
+
+    try:
+        # Faire la prediction
+        prediction = predict_passenger(passenger.dict())
+
+        # Calculer la latence
+        latency = time.time() - start_time
+
+        # Obtenir la probabilite de prediction (confiance)
+        from api.predict import encode_sex, pipeline
+        import pandas as pd
+
+        passenger_encoded = passenger.dict()
+        passenger_encoded["Sex"] = encode_sex(passenger.Sex)
+        df = pd.DataFrame([passenger_encoded])
+        proba = pipeline.predict_proba(df)[0]
+
+        # La confiance est la probabilite maximale
+        confidence = float(max(proba))
+
+        # Enregistrer la prediction dans les metriques
+        enregistrer_prediction(
+            model_version="v1.0",
+            prediction_class=prediction.lower(),
+            confidence=confidence,
+            latency=latency
+        )
+
+        return {"prediction": prediction}
+
+    except Exception as e:
+        # Enregistrer l'erreur
+        enregistrer_erreur("prediction_error")
+        raise
 
 
 @app.post("/predict_many", summary="Prediction for multiple Titanic passengers", response_description="List of predictions")

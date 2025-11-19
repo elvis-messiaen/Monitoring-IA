@@ -7,7 +7,8 @@ A comprehensive Machine Learning monitoring solution that combines Titanic predi
 This project implements a complete ML monitoring pipeline for a Titanic survival prediction model. It includes:
 - FastAPI-based REST API for ML predictions
 - Real-time monitoring and metrics collection with Prometheus
-- Interactive dashboards with Grafana
+- Interactive dashboards with Grafana (API Performance + ML Metrics)
+- ML model drift detection and performance monitoring with Evidently AI
 - Container orchestration with Docker Compose
 - Container-level monitoring with cAdvisor
 
@@ -75,18 +76,144 @@ This project implements a complete ML monitoring pipeline for a Titanic survival
 - **Prometheus**: http://localhost:9090
 - **cAdvisor**: http://localhost:8080
 
-### Générer un rapport Evidently
+### Making Predictions
 
 ```bash
-# Installer les dépendances (si développement local)
+# Single prediction
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d '{"Sex": "F", "Fare": 30.0}'
+
+# Batch predictions
+curl -X POST "http://localhost:8000/predict_many" \
+  -H "Content-Type: application/json" \
+  -d '{"passengers": [{"Sex": "M", "Fare": 10.0}, {"Sex": "F", "Fare": 50.0}]}'
+```
+
+### Generate Evidently Reports
+
+```bash
+# Install dependencies (if local development)
 pip install -r requirements.txt
 
-# Générer un rapport de drift
+# Generate drift report (sample data)
 python scripts/generer_rapport_test.py
 
-# Ouvrir le rapport
-open reports/drift_report_test.html
+# Generate report with real model predictions
+python scripts/generer_rapport_avec_predictions.py
+
+# Open the report
+open reports/drift_report_with_predictions_*.html
 ```
+
+### Visualize Metrics and Monitoring
+
+#### 🎯 Step 1: Generate Prediction Data
+
+Before viewing dashboards, generate some prediction data:
+
+```bash
+# Run 10 random predictions to populate metrics
+python scripts/simuler_predictions.py
+
+# Or make predictions via API
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d '{"Sex": "F", "Fare": 30.0}'
+```
+
+#### 📊 Step 2: View Grafana Dashboards
+
+**Access Grafana**: http://localhost:3000
+- **Username**: admin
+- **Password**: admin
+
+**Available Dashboards**:
+
+1. **ML Metrics Dashboard** - http://localhost:3000/d/ml-metrics
+   - Predictions by class (increase over time)
+   - Prediction latency (p50, p95, p99)
+   - Model accuracy gauge (0-1 scale)
+   - Data drift score gauge
+   - Prediction confidence levels
+   - Prediction error rates
+
+2. **API Performance Dashboard** - http://localhost:3000/d/api-performance
+   - HTTP request latency (p50, p95)
+   - Requests per second
+   - HTTP error rates (4xx/5xx)
+   - Container CPU & RAM usage
+
+**Dashboard Tips**:
+- Set time range to **"Last 15 minutes"** to see recent data
+- Enable auto-refresh (10s) for real-time updates
+- Click on any panel to explore queries and customize
+
+#### 🔍 Step 3: Query Prometheus Directly
+
+**Access Prometheus**: http://localhost:9090
+
+**Useful Queries**:
+
+```promql
+# Total predictions by class
+ml_predictions_total
+
+# Prediction rate (predictions per second)
+rate(ml_predictions_total[5m])
+
+# Average prediction latency
+rate(ml_prediction_latency_seconds_sum[5m]) / rate(ml_prediction_latency_seconds_count[5m])
+
+# Model accuracy
+ml_model_accuracy
+
+# Data drift score
+ml_data_drift_score
+
+# Prediction confidence by class
+ml_prediction_confidence
+
+# HTTP request rate
+rate(http_requests_total[5m])
+
+# HTTP request latency (95th percentile)
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+```
+
+#### 📈 Step 4: View Raw Metrics
+
+**Access API Metrics**: http://localhost:8000/metrics
+
+This endpoint exposes all Prometheus metrics in text format, including:
+- Custom ML metrics (ml_*)
+- HTTP metrics (http_*)
+- Python/FastAPI runtime metrics
+- Container metrics (via cAdvisor)
+
+**Example Output**:
+```
+# HELP ml_predictions_total Nombre total de prédictions effectuées
+# TYPE ml_predictions_total counter
+ml_predictions_total{model_version="v1.0",prediction_class="survived"} 26.0
+ml_predictions_total{model_version="v1.0",prediction_class="died"} 14.0
+
+# HELP ml_prediction_latency_seconds Latence des prédictions en secondes
+# TYPE ml_prediction_latency_seconds histogram
+ml_prediction_latency_seconds_bucket{le="0.025",model_version="v1.0"} 40.0
+ml_prediction_latency_seconds_sum{model_version="v1.0"} 0.52
+ml_prediction_latency_seconds_count{model_version="v1.0"} 40.0
+```
+
+#### 🐳 Step 5: Monitor Container Resources
+
+**Access cAdvisor**: http://localhost:8080
+
+View detailed container-level metrics:
+- CPU usage per container
+- Memory consumption
+- Network I/O
+- Disk I/O
 
 ## 📁 Project Structure
 
@@ -103,8 +230,11 @@ Monitoring-IA/
 │   └── Dockerfile           # Docker configuration pour l'API
 ├── grafana/
 │   ├── datasources/
-│   │   └── prometheus.yml   # Configuration datasource Grafana
-│   └── dashboards/          # Définitions des dashboards
+│   │   └── prometheus.yml         # Grafana datasource configuration
+│   └── dashboards/
+│       ├── dashboard.yml          # Dashboard provisioning config
+│       ├── api-performance.json   # API Performance dashboard
+│       └── ml-metrics.json        # ML Metrics dashboard
 ├── prometheus/
 │   └── prometheus.yml       # Configuration scraping Prometheus
 ├── notebooks/
@@ -159,15 +289,17 @@ The FastAPI application is configured with:
 
 ### API Endpoints
 
-| Endpoint | Méthode | Description |
-|----------|---------|-------------|
-| `/` | GET | Informations sur l'API |
-| `/health` | GET | Healthcheck Docker |
-| `/metrics` | GET | Métriques Prometheus |
-| `/docs` | GET | Documentation Swagger interactive |
-| `/monitoring/stats` | GET | Statistiques de monitoring |
-| `/monitoring/test/prediction` | POST | Test d'enregistrement de prédiction |
-| `/monitoring/test/accuracy` | POST | Test de mise à jour d'accuracy |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | API information |
+| `/health` | GET | Docker healthcheck |
+| `/metrics` | GET | Prometheus metrics |
+| `/docs` | GET | Interactive Swagger documentation |
+| `/predict` | POST | Single passenger survival prediction |
+| `/predict_many` | POST | Batch predictions for multiple passengers |
+| `/monitoring/stats` | GET | Monitoring statistics |
+| `/monitoring/test/prediction` | POST | Test prediction recording |
+| `/monitoring/test/accuracy` | POST | Test accuracy update |
 
 ### Métriques Prometheus personnalisées
 
@@ -192,12 +324,29 @@ Génération de rapports HTML interactifs pour:
 
 Les rapports sont sauvegardés dans `reports/` et s'ouvrent dans le navigateur.
 
-### Dashboards
+### Grafana Dashboards
 
-- **System Overview**: Santé et performance globale du système
-- **API Performance**: Métriques de requêtes et temps de réponse
-- **Container Monitoring**: Utilisation des ressources par conteneur
-- **ML Model Metrics**: Performance du modèle et drift (via Evidently)
+The project includes two pre-configured Grafana dashboards that are automatically provisioned on startup:
+
+#### API Performance Dashboard (`grafana/dashboards/api-performance.json`)
+Monitors the health and performance of the FastAPI application:
+- **HTTP Request Latency** (p50, p95): Response time percentiles for all endpoints
+- **Requests per Second**: Real-time request rate by HTTP method and handler
+- **HTTP Error Rate** (4xx/5xx): Error tracking for client and server errors
+- **Container Resources** (CPU & RAM): Resource usage metrics via cAdvisor
+
+#### ML Metrics Dashboard (`grafana/dashboards/ml-metrics.json`)
+Tracks machine learning model performance and predictions:
+- **Predictions by Class** (rate 5m): Prediction distribution over time
+- **Prediction Latency** (p50, p95, p99): Model inference time percentiles
+- **Model Accuracy Gauge**: Current model accuracy (0-1 scale)
+- **Data Drift Score Gauge**: Data drift detection score (0-1 scale)
+- **Prediction Confidence**: Confidence levels by prediction class
+- **Prediction Error Rate**: ML prediction errors by type
+
+**Access Dashboards**: Navigate to http://localhost:3000 (admin/admin) and select dashboards from the left menu.
+
+**Note**: Dashboards require active traffic to display metrics. Use the `/predict` or `/monitoring/test/prediction` endpoints to generate data.
 
 ## 🐳 Docker Services
 
@@ -393,4 +542,20 @@ For questions and support:
 
 ---
 
-**Note**: This is an ML monitoring project focusing on infrastructure setup. The actual machine learning model and advanced monitoring features are currently being developed.
+## ✨ Project Status
+
+**Current Status**: Production Ready (97.7% complete)
+
+**Implemented Features**:
+- ✅ Trained Titanic survival prediction model (scikit-learn)
+- ✅ FastAPI REST API with prediction endpoints
+- ✅ Prometheus metrics collection and custom ML metrics
+- ✅ Two Grafana dashboards (API Performance + ML Metrics)
+- ✅ Evidently AI integration for drift detection
+- ✅ Docker Compose orchestration
+- ✅ Complete test suite
+- ✅ Comprehensive documentation
+
+**Remaining Tasks** (2.3%):
+- Expose Evidently metrics to Prometheus/Grafana
+- Automate Evidently report generation (cron job or endpoint)

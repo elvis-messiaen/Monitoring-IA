@@ -10,6 +10,7 @@ import pandas as pd
 from prometheus_client import Counter, Histogram, Gauge, Summary
 from evidently import Report
 from evidently.presets import ClassificationPreset, DataDriftPreset
+from evidently.legacy.pipeline.column_mapping import ColumnMapping
 from loguru import logger
 
 
@@ -195,15 +196,24 @@ def generer_rapport_classification(
     try:
         logger.info("Génération du rapport de classification...")
 
+        # Preparer les donnees pour Evidently: renommer les colonnes target et prediction
+        # Evidently 0.7 detecte automatiquement les colonnes 'target' et 'prediction'
+        reference_df = reference_data.copy()
+        current_df = current_data.copy()
+
+        # Renommer les colonnes pour qu'Evidently les detecte automatiquement
+        reference_df = reference_df.rename(columns={target_column: 'target', prediction_column: 'prediction'})
+        current_df = current_df.rename(columns={target_column: 'target', prediction_column: 'prediction'})
+
         # Créer le rapport avec le preset de classification Evidently 0.7+
         report = Report(metrics=[
             ClassificationPreset(),
         ])
 
-        # Exécuter le rapport - run() retourne le resultat
+        # Exécuter le rapport (Evidently detecte automatiquement les colonnes 'target' et 'prediction')
         report_result = report.run(
-            reference_data=reference_data,
-            current_data=current_data
+            reference_data=reference_df,
+            current_data=current_df
         )
 
         # Sauvegarder le rapport si un chemin est fourni
