@@ -9,12 +9,10 @@ from api.main import app
 client = TestClient(app)
 
 
-# -----------------------------
-# Tests for /predict (single)
-# -----------------------------
-
 def test_predict_valid_input():
-    """Test prediction with a valid passenger."""
+    """
+    Test prediction with a valid passenger.
+    """
     response = client.post(
         "/predict",
         json={"Sex": "F", "Fare": 30.0}
@@ -28,16 +26,20 @@ def test_predict_valid_input():
 
 
 def test_predict_missing_field():
-    """Test that missing fields return a validation error."""
+    """
+    Test that missing fields return a validation error.
+    """
     response = client.post(
         "/predict",
-        json={"Sex": "M"}  # Missing Fare
+        json={"Sex": "M"}
     )
-    assert response.status_code == 422  # Unprocessable Entity
+    assert response.status_code == 422
 
 
 def test_predict_invalid_sex():
-    """Test validation for invalid Sex value."""
+    """
+    Test validation for invalid Sex value.
+    """
     response = client.post(
         "/predict",
         json={"Sex": "X", "Fare": 10.0}
@@ -45,12 +47,10 @@ def test_predict_invalid_sex():
     assert response.status_code == 422
 
 
-# -----------------------------
-# Tests for /predict_many (batch)
-# -----------------------------
-
 def test_predict_many_valid_input():
-    """Test batch prediction with valid passengers."""
+    """
+    Test batch prediction with valid passengers.
+    """
     response = client.post(
         "/predict_many",
         json={
@@ -68,24 +68,26 @@ def test_predict_many_valid_input():
 
 
 def test_predict_many_empty_list():
-    """Test that an empty batch returns a 422 validation error."""
+    """
+    Test that an empty batch returns a 422 validation error.
+    """
     response = client.post(
         "/predict_many",
         json=[]
     )
 
-    # FastAPI rejects empty lists by default only if the model requires items.
-    # If your route allows an empty list, change this expectation.
     assert response.status_code in [200, 422]
 
 
 def test_predict_many_invalid_passenger():
-    """Test batch where one passenger is invalid."""
+    """
+    Test batch where one passenger is invalid.
+    """
     response = client.post(
         "/predict_many",
         json=[
             {"Sex": "M", "Fare": 20},
-            {"Sex": "X", "Fare": 50}  # Invalid
+            {"Sex": "X", "Fare": 50}
         ]
     )
     assert response.status_code == 422

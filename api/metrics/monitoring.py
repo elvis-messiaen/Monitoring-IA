@@ -1,6 +1,6 @@
 """
-Module de monitoring pour l'API ML Titanic.
-Ce module contient les métriques Prometheus personnalisées et les rapports Evidently.
+Monitoring module for Titanic ML API.
+Contains custom Prometheus metrics and Evidently reports.
 """
 
 from datetime import datetime
@@ -14,18 +14,12 @@ from evidently.legacy.pipeline.column_mapping import ColumnMapping
 from loguru import logger
 
 
-# ============================================================
-# MÉTRIQUES PROMETHEUS PERSONNALISÉES
-# ============================================================
-
-# Compteur de prédictions totales
 predictions_total = Counter(
     'ml_predictions_total',
     'Nombre total de prédictions effectuées',
     ['model_version', 'prediction_class']
 )
 
-# Histogramme de la latence des prédictions
 prediction_latency = Histogram(
     'ml_prediction_latency_seconds',
     'Latence des prédictions en secondes',
@@ -33,58 +27,47 @@ prediction_latency = Histogram(
     buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0)
 )
 
-# Compteur d'erreurs de prédiction
 prediction_errors = Counter(
     'ml_prediction_errors_total',
     'Nombre total d\'erreurs lors des prédictions',
     ['error_type']
 )
 
-# Gauge pour la confiance moyenne des prédictions
 prediction_confidence = Gauge(
     'ml_prediction_confidence',
     'Confiance moyenne des prédictions (probabilité)',
     ['prediction_class']
 )
 
-# Summary pour les statistiques de confiance
 prediction_confidence_summary = Summary(
     'ml_prediction_confidence_summary',
     'Statistiques de confiance des prédictions',
     ['model_version']
 )
 
-# Compteur de drift détecté
 data_drift_detected = Counter(
     'ml_data_drift_detected_total',
     'Nombre de fois où un drift de données a été détecté',
     ['feature_name']
 )
 
-# Gauge pour le score de drift global
 data_drift_score = Gauge(
     'ml_data_drift_score',
     'Score de drift global du dataset (0-1)',
 )
 
-# Compteur pour le monitoring de la qualité du modèle
 model_accuracy = Gauge(
     'ml_model_accuracy',
     'Précision actuelle du modèle',
     ['model_version']
 )
 
-# Compteur de requêtes de monitoring
 monitoring_requests = Counter(
     'ml_monitoring_requests_total',
     'Nombre total de requêtes de monitoring',
     ['endpoint']
 )
 
-
-# ============================================================
-# FONCTIONS DE COLLECTE DE MÉTRIQUES
-# ============================================================
 
 def enregistrer_prediction(
     model_version: str,
@@ -93,28 +76,22 @@ def enregistrer_prediction(
     latency: float
 ) -> None:
     """
-    Enregistre une prédiction dans les métriques Prometheus.
+    Register a prediction in Prometheus metrics.
 
     Args:
-        model_version: Version du modèle utilisé (ex: "v1.0")
-        prediction_class: Classe prédite (ex: "survived", "not_survived")
-        confidence: Niveau de confiance de la prédiction (0-1)
-        latency: Temps de traitement en secondes
+        model_version: Model version used (e.g., "v1.0")
+        prediction_class: Predicted class (e.g., "survived", "not_survived")
+        confidence: Prediction confidence level (0-1)
+        latency: Processing time in seconds
     """
     try:
-        # Incrémenter le compteur de prédictions
         predictions_total.labels(
             model_version=model_version,
             prediction_class=prediction_class
         ).inc()
 
-        # Enregistrer la latence
         prediction_latency.labels(model_version=model_version).observe(latency)
-
-        # Mettre à jour la confiance
         prediction_confidence.labels(prediction_class=prediction_class).set(confidence)
-
-        # Ajouter au summary de confiance
         prediction_confidence_summary.labels(model_version=model_version).observe(confidence)
 
         logger.info(
@@ -129,10 +106,10 @@ def enregistrer_prediction(
 
 def enregistrer_erreur(error_type: str) -> None:
     """
-    Enregistre une erreur dans les métriques Prometheus.
+    Register an error in Prometheus metrics.
 
     Args:
-        error_type: Type d'erreur rencontrée (ex: "validation_error", "model_error")
+        error_type: Type of error encountered (e.g., "validation_error", "model_error")
     """
     try:
         prediction_errors.labels(error_type=error_type).inc()
@@ -143,11 +120,11 @@ def enregistrer_erreur(error_type: str) -> None:
 
 def mettre_a_jour_accuracy(model_version: str, accuracy: float) -> None:
     """
-    Met à jour la métrique d'accuracy du modèle.
+    Update the model accuracy metric.
 
     Args:
-        model_version: Version du modèle
-        accuracy: Précision du modèle (0-1)
+        model_version: Model version
+        accuracy: Model accuracy (0-1)
     """
     try:
         model_accuracy.labels(model_version=model_version).set(accuracy)
@@ -158,20 +135,16 @@ def mettre_a_jour_accuracy(model_version: str, accuracy: float) -> None:
 
 def enregistrer_requete_monitoring(endpoint: str) -> None:
     """
-    Enregistre une requête vers un endpoint de monitoring.
+    Register a request to a monitoring endpoint.
 
     Args:
-        endpoint: Nom de l'endpoint appelé
+        endpoint: Name of the called endpoint
     """
     try:
         monitoring_requests.labels(endpoint=endpoint).inc()
     except Exception as e:
         logger.error(f"Erreur lors de l'enregistrement de la requête monitoring: {e}")
 
-
-# ============================================================
-# RAPPORTS EVIDENTLY
-# ============================================================
 
 def generer_rapport_classification(
     reference_data: pd.DataFrame,
@@ -181,49 +154,42 @@ def generer_rapport_classification(
     output_path: Optional[Path] = None
 ) -> Dict:
     """
-    Génère un rapport de performance de classification avec Evidently.
+    Generate a classification performance report with Evidently.
 
     Args:
-        reference_data: Données de référence (données d'entraînement)
-        current_data: Données actuelles (données de production)
-        target_column: Nom de la colonne cible
-        prediction_column: Nom de la colonne de prédictions
-        output_path: Chemin où sauvegarder le rapport HTML (optionnel)
+        reference_data: Reference data (training data)
+        current_data: Current data (production data)
+        target_column: Target column name
+        prediction_column: Predictions column name
+        output_path: Path to save HTML report (optional)
 
     Returns:
-        Dictionnaire contenant les résultats du rapport
+        Dictionary containing report results
     """
     try:
         logger.info("Génération du rapport de classification...")
 
-        # Preparer les donnees pour Evidently: renommer les colonnes target et prediction
-        # Evidently 0.7 detecte automatiquement les colonnes 'target' et 'prediction'
         reference_df = reference_data.copy()
         current_df = current_data.copy()
 
-        # Renommer les colonnes pour qu'Evidently les detecte automatiquement
         reference_df = reference_df.rename(columns={target_column: 'target', prediction_column: 'prediction'})
         current_df = current_df.rename(columns={target_column: 'target', prediction_column: 'prediction'})
 
-        # Créer le rapport avec le preset de classification Evidently 0.7+
         report = Report(metrics=[
             ClassificationPreset(),
         ])
 
-        # Exécuter le rapport (Evidently detecte automatiquement les colonnes 'target' et 'prediction')
         report_result = report.run(
             reference_data=reference_df,
             current_data=current_df
         )
 
-        # Sauvegarder le rapport si un chemin est fourni
         if output_path:
             output_path = Path(output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             report_result.save_html(str(output_path))
             logger.info(f"Rapport de classification sauvegardé: {output_path}")
 
-        # Extraire les résultats
         resultats = report_result.as_dict() if hasattr(report_result, 'as_dict') else {}
 
         logger.info("Rapport de classification généré avec succès")
@@ -241,41 +207,36 @@ def generer_rapport_drift(
     output_path: Optional[Path] = None
 ) -> Dict:
     """
-    Génère un rapport de détection de drift avec Evidently.
+    Generate a drift detection report with Evidently.
 
     Args:
-        reference_data: Données de référence (données d'entraînement)
-        current_data: Données actuelles (données de production)
-        output_path: Chemin où sauvegarder le rapport HTML (optionnel)
+        reference_data: Reference data (training data)
+        current_data: Current data (production data)
+        output_path: Path to save HTML report (optional)
 
     Returns:
-        Dictionnaire contenant les résultats du rapport
+        Dictionary containing report results
     """
     try:
         logger.info("Génération du rapport de drift...")
 
-        # Créer le rapport avec le preset de drift Evidently 0.7+
         report = Report(metrics=[
             DataDriftPreset(),
         ])
 
-        # Exécuter le rapport - run() retourne le resultat
         report_result = report.run(
             reference_data=reference_data,
             current_data=current_data
         )
 
-        # Sauvegarder le rapport si un chemin est fourni
         if output_path:
             output_path = Path(output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             report_result.save_html(str(output_path))
             logger.info(f"Rapport de drift sauvegardé: {output_path}")
 
-        # Extraire les résultats
         resultats = report_result.as_dict() if hasattr(report_result, 'as_dict') else {}
 
-        # Mettre à jour les métriques Prometheus
         _mettre_a_jour_metriques_drift(resultats)
 
         logger.info("Rapport de drift généré avec succès")
@@ -289,13 +250,12 @@ def generer_rapport_drift(
 
 def _mettre_a_jour_metriques_drift(resultats_drift: Dict) -> None:
     """
-    Met à jour les métriques Prometheus avec les résultats du drift.
+    Update Prometheus metrics with drift results.
 
     Args:
-        resultats_drift: Dictionnaire contenant les résultats du rapport de drift
+        resultats_drift: Dictionary containing drift report results
     """
     try:
-        # Extraire le score de drift global
         metrics = resultats_drift.get('metrics', [])
 
         for metric in metrics:
@@ -304,10 +264,8 @@ def _mettre_a_jour_metriques_drift(resultats_drift: Dict) -> None:
                 drift_score = result.get('dataset_drift_score', 0)
                 drift_detected = result.get('drift_detected', False)
 
-                # Mettre à jour le score de drift global
                 data_drift_score.set(drift_score)
 
-                # Enregistrer les drifts détectés par feature
                 drift_by_columns = result.get('drift_by_columns', {})
                 for feature_name, feature_drift in drift_by_columns.items():
                     if feature_drift.get('drift_detected', False):
@@ -331,29 +289,26 @@ def generer_rapport_complet(
     report_dir: Path = Path("/app/reports")
 ) -> Dict:
     """
-    Génère un rapport complet incluant la classification et le drift.
+    Generate a complete report including classification and drift.
 
     Args:
-        reference_data: Données de référence
-        current_data: Données actuelles
-        target_column: Nom de la colonne cible
-        prediction_column: Nom de la colonne de prédictions
-        report_dir: Répertoire où sauvegarder les rapports
+        reference_data: Reference data
+        current_data: Current data
+        target_column: Target column name
+        prediction_column: Predictions column name
+        report_dir: Directory to save reports
 
     Returns:
-        Dictionnaire contenant tous les résultats
+        Dictionary containing all results
     """
     try:
         logger.info("Génération du rapport complet...")
 
-        # Créer le répertoire de rapports s'il n'existe pas
         report_dir = Path(report_dir)
         report_dir.mkdir(parents=True, exist_ok=True)
 
-        # Générer un timestamp pour les noms de fichiers
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Générer le rapport de classification
         classification_path = report_dir / f"classification_report_{timestamp}.html"
         resultats_classification = generer_rapport_classification(
             reference_data=reference_data,
@@ -363,7 +318,6 @@ def generer_rapport_complet(
             output_path=classification_path
         )
 
-        # Générer le rapport de drift
         drift_path = report_dir / f"drift_report_{timestamp}.html"
         resultats_drift = generer_rapport_drift(
             reference_data=reference_data,
@@ -371,7 +325,6 @@ def generer_rapport_complet(
             output_path=drift_path
         )
 
-        # Combiner les résultats
         rapport_complet = {
             "timestamp": timestamp,
             "classification": resultats_classification,
@@ -391,24 +344,15 @@ def generer_rapport_complet(
         raise
 
 
-# ============================================================
-# FONCTIONS UTILITAIRES
-# ============================================================
-
 def obtenir_statistiques_metriques() -> Dict:
     """
-    Récupère les statistiques actuelles des métriques Prometheus.
+    Get current Prometheus metrics statistics.
 
     Returns:
-        Dictionnaire contenant les valeurs actuelles des métriques
+        Dictionary containing current metric values
     """
     try:
         enregistrer_requete_monitoring("statistiques_metriques")
-
-        # Cette fonction pourrait être étendue pour extraire
-        # les valeurs actuelles des métriques Prometheus
-        # Pour l'instant, elle retourne un dictionnaire vide
-        # qui sera rempli lors de l'intégration avec l'API
 
         statistiques = {
             "message": "Consultez /metrics pour les métriques Prometheus complètes"
@@ -424,13 +368,11 @@ def obtenir_statistiques_metriques() -> Dict:
 
 def reinitialiser_metriques() -> None:
     """
-    Réinitialise certaines métriques Prometheus.
-    Utilisé principalement pour les tests ou le debugging.
+    Reset certain Prometheus metrics.
+    Used primarily for testing or debugging.
     """
     try:
         logger.warning("Réinitialisation des métriques demandée")
-        # Les métriques Prometheus ne peuvent pas être réinitialisées facilement
-        # Cette fonction est un placeholder pour une future implémentation
         logger.info("Les métriques Prometheus ne peuvent pas être réinitialisées")
     except Exception as e:
         logger.error(f"Erreur lors de la réinitialisation des métriques: {e}")

@@ -7,7 +7,6 @@ from loguru import logger
 import time
 from typing import Dict
 
-# Import des fonctions de monitoring
 from api.metrics import (
     enregistrer_prediction,
     enregistrer_erreur,
@@ -61,17 +60,12 @@ def predict(passenger: Passenger):
     """
     import time
 
-    # Mesurer la latence
     start_time = time.time()
 
     try:
-        # Faire la prediction
         prediction = predict_passenger(passenger.dict())
-
-        # Calculer la latence
         latency = time.time() - start_time
 
-        # Obtenir la probabilite de prediction (confiance)
         from api.predict import encode_sex, pipeline
         import pandas as pd
 
@@ -80,10 +74,8 @@ def predict(passenger: Passenger):
         df = pd.DataFrame([passenger_encoded])
         proba = pipeline.predict_proba(df)[0]
 
-        # La confiance est la probabilite maximale
         confidence = float(max(proba))
 
-        # Enregistrer la prediction dans les metriques
         enregistrer_prediction(
             model_version="v1.0",
             prediction_class=prediction.lower(),
@@ -94,7 +86,6 @@ def predict(passenger: Passenger):
         return {"prediction": prediction}
 
     except Exception as e:
-        # Enregistrer l'erreur
         enregistrer_erreur("prediction_error")
         raise
 
@@ -132,24 +123,17 @@ def predict_many(passengers: Passengers):
 
 
 
-# Instrumentation Prometheus
 Instrumentator().instrument(app).expose(app)
-
-# Configuration du logger
 logger.add("logs/api.log", rotation="500 MB", level="INFO")
 
-
-# ============================================================
-# ENDPOINTS PRINCIPAUX
-# ============================================================
 
 @app.get("/")
 def root() -> Dict:
     """
-    Endpoint racine de l'API.
+    API root endpoint.
 
     Returns:
-        Message de bienvenue et informations sur l'API
+        Welcome message and API information
     """
     return {
         "message": "API de Monitoring ML Titanic en ligne",
@@ -166,10 +150,10 @@ def root() -> Dict:
 @app.get("/health")
 def health_check() -> Dict:
     """
-    Endpoint de vérification de santé pour Docker healthcheck.
+    Health check endpoint for Docker healthcheck.
 
     Returns:
-        Statut de l'API
+        API status
     """
     return {
         "status": "healthy",
@@ -177,17 +161,13 @@ def health_check() -> Dict:
     }
 
 
-# ============================================================
-# ENDPOINTS DE MONITORING
-# ============================================================
-
 @app.get("/monitoring/stats")
 def obtenir_stats() -> Dict:
     """
-    Récupère les statistiques de monitoring actuelles.
+    Get current monitoring statistics.
 
     Returns:
-        Statistiques des métriques Prometheus
+        Prometheus metrics statistics
     """
     try:
         stats = obtenir_statistiques_metriques()
@@ -208,23 +188,21 @@ def test_enregistrer_prediction(
     confidence: float = 0.85
 ) -> Dict:
     """
-    Endpoint de test pour enregistrer une prédiction.
+    Test endpoint to register a prediction.
 
     Args:
-        model_version: Version du modèle
-        prediction_class: Classe prédite (survived/not_survived)
-        confidence: Niveau de confiance (0-1)
+        model_version: Model version
+        prediction_class: Predicted class (survived/not_survived)
+        confidence: Confidence level (0-1)
 
     Returns:
-        Confirmation de l'enregistrement
+        Registration confirmation
     """
     try:
-        # Simuler un temps de traitement
         start_time = time.time()
-        time.sleep(0.01)  # Simuler le temps de prédiction
+        time.sleep(0.01)
         latency = time.time() - start_time
 
-        # Enregistrer la prédiction dans Prometheus
         enregistrer_prediction(
             model_version=model_version,
             prediction_class=prediction_class,
@@ -251,13 +229,10 @@ def test_enregistrer_prediction(
 @app.post("/monitoring/calculate-accuracy")
 def calculer_accuracy_reelle() -> Dict:
     """
-    Calcule automatiquement l'accuracy REELLE du modèle sur le dataset de test.
-
-    Args:
-        model_version: Version du modèle
+    Automatically calculate the model's actual accuracy on the test dataset.
 
     Returns:
-        Accuracy calculée et métrique mise à jour
+        Calculated accuracy and updated metric
     """
     try:
         from pathlib import Path
@@ -266,35 +241,26 @@ def calculer_accuracy_reelle() -> Dict:
         from api.predict import pipeline, encode_sex
 
         model_version: str = "v1.0"
-        # Charger le dataset de test
         BASE_DIR = Path("/app")
         data_path = BASE_DIR / "data" / "titanic_cleaned_dataset.csv"
 
         if not data_path.exists():
             raise FileNotFoundError(f"Dataset introuvable: {data_path}")
 
-        # Charger les données
         df = pd.read_csv(data_path)
 
-        # Diviser: 70% train, 30% test (même split que dans le script de rapport)
         split_idx = int(len(df) * 0.7)
         test_data = df.iloc[split_idx:].copy()
 
-        # Préparer les features
         X_test = test_data[['Sex', 'Fare']].copy()
         y_test = test_data['Survived'].copy()
 
-        # Encoder Sex si nécessaire
         if X_test['Sex'].dtype == 'object':
             X_test['Sex'] = X_test['Sex'].apply(lambda x: 0 if x.upper() == 'M' else 1)
 
-        # Faire les prédictions
         y_pred = pipeline.predict(X_test)
-
-        # Calculer l'accuracy
         accuracy = float(accuracy_score(y_test, y_pred))
 
-        # Mettre à jour la métrique Prometheus
         mettre_a_jour_accuracy(
             model_version=model_version,
             accuracy=accuracy
@@ -320,20 +286,15 @@ def calculer_accuracy_reelle() -> Dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ============================================================
-# ÉVÉNEMENTS DE DÉMARRAGE ET ARRÊT
-# ============================================================
-
 @app.on_event("startup")
 async def startup_event():
     """
-    Événement exécuté au démarrage de l'application.
+    Event executed at application startup.
     """
     logger.info("Démarrage de l'API Titanic ML Monitoring")
     logger.info("Instrumentation Prometheus activée")
     logger.info("Endpoints de monitoring disponibles")
 
-    # Calculer automatiquement l'accuracy du modèle au démarrage
     try:
         logger.info("Calcul automatique de l'accuracy du modèle...")
         from pathlib import Path
@@ -341,33 +302,24 @@ async def startup_event():
         from sklearn.metrics import accuracy_score
         from api.predict import pipeline
 
-        # Charger le dataset de test
         BASE_DIR = Path("/app")
         data_path = BASE_DIR / "data" / "titanic_cleaned_dataset.csv"
 
         if data_path.exists():
-            # Charger les données
             df = pd.read_csv(data_path)
 
-            # Diviser: 70% train, 30% test
             split_idx = int(len(df) * 0.7)
             test_data = df.iloc[split_idx:].copy()
 
-            # Préparer les features
             X_test = test_data[['Sex', 'Fare']].copy()
             y_test = test_data['Survived'].copy()
 
-            # Encoder Sex si nécessaire
             if X_test['Sex'].dtype == 'object':
                 X_test['Sex'] = X_test['Sex'].apply(lambda x: 0 if x.upper() == 'M' else 1)
 
-            # Faire les prédictions
             y_pred = pipeline.predict(X_test)
-
-            # Calculer l'accuracy
             accuracy = float(accuracy_score(y_test, y_pred))
 
-            # Mettre à jour la métrique Prometheus
             mettre_a_jour_accuracy(model_version="v1.0", accuracy=accuracy)
 
             logger.info(f"✅ Accuracy calculée et initialisée: {accuracy:.4f} ({accuracy*100:.2f}%) sur {len(test_data)} échantillons")
@@ -376,13 +328,12 @@ async def startup_event():
 
     except Exception as e:
         logger.error(f"❌ Erreur lors du calcul automatique de l'accuracy: {e}")
-        # Ne pas bloquer le démarrage de l'API si le calcul échoue
 
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """
-    Événement exécuté à l'arrêt de l'application.
+    Event executed at application shutdown.
     """
     logger.info("Arrêt de l'API Titanic ML Monitoring")

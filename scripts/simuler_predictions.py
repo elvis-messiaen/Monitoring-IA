@@ -1,6 +1,6 @@
 """
-Script pour simuler 10 predictions aleatoires pour tester le systeme de monitoring.
-Genere des combinaisons aleatoires de sexe (M/F) et prix (bas/haut).
+Script to simulate 10 random predictions to test the monitoring system.
+Generates random combinations of sex (M/F) and fare (low/high).
 """
 
 import requests
@@ -8,30 +8,25 @@ import random
 import time
 from datetime import datetime
 
-# Configuration
 API_URL = "http://localhost:8000"
 
-# Plages de prix
-PRIX_BAS = (5.0, 30.0)    # Prix bas: entre 5 et 30
-PRIX_HAUT = (50.0, 150.0)  # Prix haut: entre 50 et 150
+PRIX_BAS = (5.0, 30.0)
+PRIX_HAUT = (50.0, 150.0)
+
 
 def generer_passager_aleatoire():
     """
-    Genere un passager aleatoire avec sexe et prix.
+    Generate a random passenger with sex and fare.
 
     Returns:
-        dict: Passager avec Sex et Fare
+        Dictionary with Sex, Fare, and category
     """
-    # Choix aleatoire du sexe
     sex = random.choice(['M', 'F'])
 
-    # Choix aleatoire entre prix bas et prix haut
     if random.random() < 0.5:
-        # Prix bas
         fare = round(random.uniform(*PRIX_BAS), 2)
         categorie = "Prix bas"
     else:
-        # Prix haut
         fare = round(random.uniform(*PRIX_HAUT), 2)
         categorie = "Prix haut"
 
@@ -41,18 +36,18 @@ def generer_passager_aleatoire():
         "categorie": categorie
     }
 
+
 def faire_prediction(passager):
     """
-    Fait une prediction pour un passager.
+    Make a prediction for a passenger.
 
     Args:
-        passager: dict avec Sex et Fare
+        passager: Dictionary with Sex and Fare
 
     Returns:
-        dict: Reponse de l'API
+        API response dictionary
     """
     try:
-        # Enlever la categorie avant d'envoyer a l'API
         data = {
             "Sex": passager["Sex"],
             "Fare": passager["Fare"]
@@ -72,16 +67,16 @@ def faire_prediction(passager):
     except Exception as e:
         return {"error": str(e)}
 
+
 def main():
     """
-    Lance 10 simulations de predictions.
+    Run 10 prediction simulations.
     """
     print("=" * 70)
     print("SIMULATION DE 10 PREDICTIONS ALEATOIRES")
     print("=" * 70)
     print()
 
-    # Verifier que l'API est accessible
     try:
         response = requests.get(f"{API_URL}/health", timeout=5)
         if response.status_code != 200:
@@ -97,7 +92,6 @@ def main():
     print("✅ API accessible")
     print()
 
-    # Statistiques
     stats = {
         "total": 0,
         "survived": 0,
@@ -108,17 +102,13 @@ def main():
         "prix_haut": 0
     }
 
-    # Lancer 10 predictions
     for i in range(1, 11):
-        # Generer un passager aleatoire
         passager = generer_passager_aleatoire()
 
-        # Afficher les details
         print(f"🎲 Prediction {i}/10")
         print(f"   Sexe: {passager['Sex']}")
         print(f"   Prix: {passager['Fare']}€ ({passager['categorie']})")
 
-        # Faire la prediction
         resultat = faire_prediction(passager)
 
         if "error" in resultat:
@@ -126,7 +116,6 @@ def main():
         else:
             print(f"   ✅ Prediction: {resultat['prediction']}")
 
-            # Mettre a jour les statistiques
             stats["total"] += 1
             if resultat["prediction"] == "Survived":
                 stats["survived"] += 1
@@ -144,11 +133,8 @@ def main():
                 stats["prix_haut"] += 1
 
         print()
-
-        # Pause de 0.5 seconde entre chaque prediction
         time.sleep(0.5)
 
-    # Afficher les statistiques
     print("=" * 70)
     print("STATISTIQUES")
     print("=" * 70)
@@ -179,6 +165,7 @@ def main():
     print("Pour voir les metriques Prometheus:")
     print("  http://localhost:8000/metrics")
     print("=" * 70)
+
 
 if __name__ == "__main__":
     main()
