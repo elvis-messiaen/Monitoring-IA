@@ -1,0 +1,26 @@
+apiVersion: 1
+
+datasources:
+  # Datasource Prometheus
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+  # Datasource cAdvisor
+  - name: cAdvisor
+    type: prometheus
+    uid: cadvisor
+    access: proxy
+    url: http://cadvisor:8080
+    isDefault: false
+
+  # Datasource API (FastAPI /metrics)
+  - name: Titanic-API
+    type: prometheus
+    uid: titanic-api
+    access: proxy
+    url: http://api:8000/metrics
+    isDefault: false

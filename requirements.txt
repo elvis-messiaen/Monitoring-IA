@@ -1,0 +1,31 @@
+# FastAPI et serveur
+fastapi
+uvicorn
+pydantic
+pytest
+
+# Machine Learning
+scikit-learn
+pandas
+numpy
+seaborn
+matplotlib
+
+# Monitoring Prometheus
+prometheus-client
+prometheus-fastapi-instrumentator
+
+# Monitoring ML avec Evidently
+evidently
+
+# Utilitaires
+python-multipart
+python-dotenv
+
+# Tests
+pytest
+pytest-asyncio
+httpx
+
+# Logging
+loguru
